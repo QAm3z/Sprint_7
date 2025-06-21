@@ -20,10 +20,13 @@ class TestOrderCreation:
         []
     ])
     def test_create_order_with_colors(self, generate_order_data, colors):
-        order_data = generate_order_data.copy()
-        order_data['color'] = colors
+        with allure.step("Подготовить данные заказа"):
+            order_data = generate_order_data.copy()
+            order_data['color'] = colors
 
-        response = requests.post(CREATE_ORDER_URL, json=order_data)
+        with allure.step("Отправить запрос на создание заказа"):
+            response = requests.post(CREATE_ORDER_URL, json=order_data)
 
-        assert response.status_code == 201
-        assert 'track' in response.json()
+        with allure.step("Проверить успешное создание"):
+            assert response.status_code == HTTP_201
+            assert all(key in response.json() for key in SUCCESS_ORDER_RESPONSE_KEYS)

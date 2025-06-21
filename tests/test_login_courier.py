@@ -13,14 +13,18 @@ class TestLoginCourier:
     2. Успешный запрос возвращает id
     ''')
     def test_login_courier_success(self, created_courier):
-        payload = {
-            "login": created_courier["login"],
-            "password": created_courier["password"]
-        }
-        response = requests.post(LOGIN_COURIER_URL, json=payload)
+        with allure.step("Подготовить валидные учетные данные"):
+            payload = {
+                "login": created_courier["login"],
+                "password": created_courier["password"]
+            }
 
-        assert response.status_code == 200
-        assert "id" in response.json()
+        with allure.step("Отправить запрос на авторизацию"):
+            response = requests.post(LOGIN_COURIER_URL, json=payload)
+
+        with allure.step("Проверить успешную авторизацию"):
+            assert response.status_code == HTTP_200
+            assert "id" in response.json()
 
 
     @allure.title('Ошибка при отсутствии обязательных полей')
@@ -32,24 +36,19 @@ class TestLoginCourier:
     ''')
     @pytest.mark.parametrize("missing_field", ["login", "password"])
     def test_login_courier_missing_field_error(self, created_courier, missing_field):
-        payload = copy.deepcopy(created_courier)
-        payload.pop(missing_field)
+        with allure.step("Подготовить данные без обязательного поля"):
+            payload = {
+                "login": created_courier["login"],
+                "password": created_courier["password"]
+            }
+            payload.pop(missing_field)
 
-        response = None
+        with allure.step("Отправить запрос с неполными данными"):
+            response = requests.post(LOGIN_COURIER_URL, json=payload)
 
-        try:
-            response = requests.post(LOGIN_COURIER_URL, json=payload, timeout=3)
-        except requests.exceptions.RequestException:
-            pytest.skip(f"Сервер не отвечает при отсутствии поля '{missing_field}'")
-
-        if response is None:
-            pytest.skip("Не удалось получить ответ от сервера")
-
-        if response.status_code == 504:
-            pytest.skip(f"Сервер возвращает 504 при отсутствии поля '{missing_field}' — баг сервера")
-
-        assert response.status_code == 400, f"Ожидался 400, получили {response.status_code}"
-        assert "Недостаточно данных для входа" in response.json().get("message", "")
+        with allure.step("Проверить ошибку валидации"):
+            assert response.status_code == HTTP_400, f"Ожидался {HTTP_400}, получили {response.status_code}"
+            assert MISSING_FIELD_LOGIN_RESPONSE["message"] in response.json().get("message", "")
 
 
     @allure.title('Ошибка при неверных учетных данных')
@@ -61,12 +60,16 @@ class TestLoginCourier:
     ''')
     @pytest.mark.parametrize("wrong_field", ["login", "password"])
     def test_login_wrong_credentials(self, created_courier, wrong_field):
-        data = {
-            "login": created_courier["login"],
-            "password": created_courier["password"]
-        }
-        data[wrong_field] = "invalid_" + data[wrong_field]
-        response = requests.post(LOGIN_COURIER_URL, json=data)
+        with allure.step("Подготовить неверные учетные данные"):
+            data = {
+                "login": created_courier["login"],
+                "password": created_courier["password"]
+            }
+            data[wrong_field] = "invalid_" + data[wrong_field]
 
-        assert response.status_code == 404
-        assert "Учетная запись не найдена" in response.json().get("message", "")
+        with allure.step("Отправить запрос с неверными данными"):
+            response = requests.post(LOGIN_COURIER_URL, json=data)
+
+        with allure.step("Проверить ошибку авторизации"):
+            assert response.status_code == HTTP_404
+            assert ACCOUNT_NOT_FOUND_RESPONSE["message"] in response.json().get("message", "")
